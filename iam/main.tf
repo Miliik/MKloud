@@ -55,3 +55,31 @@ resource "aws_iam_policy" "fake_admin_policy" {
     ]
   })
 }
+
+# Create the IAM policy for the KMS key
+resource "aws_iam_policy" "kms_usage_policy" {
+  name        = "${var.username}_kms_usage_policy"
+  description = "Policy to allow KMS encrypt and decrypt actions"
+  policy      = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = var.kms_arn
+      }
+    ]
+  })
+}
+
+# Attach the KMS policy to the IAM user
+resource "aws_iam_user_policy_attachment" "attach_kms_policy" {
+  user       = aws_iam_user.kungfu_user.name
+  policy_arn = aws_iam_policy.kms_usage_policy.arn
+}

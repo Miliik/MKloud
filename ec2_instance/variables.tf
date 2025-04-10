@@ -5,3 +5,8 @@ variable "my_ip" {
 variable "instance_name" {
   type = string
 }
+
+variable "my_default_sg_id" {
+  description = "id of the default security group"
+    type        = string
+}

@@ -25,12 +25,17 @@ resource "aws_iam_instance_profile" "kungfu_profile" {
 resource "aws_instance" "kungfu_ec2" {
   ami                  = data.aws_ami.debian_11.id
   instance_type        = "t2.micro"
-  security_groups      = [aws_security_group.kungfu_sg.name]
+  subnet_id            = aws_subnet.dmz_subnet.id
+  security_groups      = [aws_security_group.my_default_sg.id]
   key_name             = aws_key_pair.kungfu_key.id
   iam_instance_profile = aws_iam_instance_profile.kungfu_profile.name
   user_data            = file("${path.module}/scripts/install_lab.sh")
   root_block_device {
     delete_on_termination = true
+  }
+  metadata_options {
+    http_tokens = "required"
+    http_endpoint = "enabled"
   }
   tags = {
     Name = "tf-${var.instance_name}-ec2"
