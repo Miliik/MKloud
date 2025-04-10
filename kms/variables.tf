@@ -1,0 +1,3 @@
+variable "kmsname" {
+  type = string
+}

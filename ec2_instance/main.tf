@@ -24,9 +24,9 @@ resource "aws_iam_instance_profile" "kungfu_profile" {
 
 resource "aws_instance" "kungfu_ec2" {
   ami                  = data.aws_ami.debian_11.id
-  instance_type        = "t2.micro"
-  subnet_id            = aws_subnet.dmz_subnet.id
-  security_groups      = [aws_security_group.my_default_sg.id]
+  instance_type        = "${var.instance_type}"
+  subnet_id            = "${var.public_subnet_id}"
+  security_groups      = [var.security_group_id]
   key_name             = aws_key_pair.kungfu_key.id
   iam_instance_profile = aws_iam_instance_profile.kungfu_profile.name
   user_data            = file("${path.module}/scripts/install_lab.sh")
@@ -49,39 +49,7 @@ resource "aws_eip" "kungfu_eip" {
   }
 }
 
-resource "aws_default_vpc" "default" {
-  tags = {
-    Name = "Default VPC"
-  }
-}
-
 resource "aws_eip_association" "eip_assoc" {
   instance_id   = aws_instance.kungfu_ec2.id
   allocation_id = aws_eip.kungfu_eip.id
-}
-
-resource "aws_security_group" "kungfu_sg" {
-  name        = "tf-${var.instance_name}-sg"
-  description = "Allow SSH & HTTPS traffic from current ip"
-  vpc_id      = aws_default_vpc.default.id
-
-  ingress {
-    description = "Allow all ingress"
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["${var.my_ip}/32"]
-  }
-
-  egress {
-    description = "Allow all egress"
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "tf-${var.instance_name}-sg"
-  }
 }
