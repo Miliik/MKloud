@@ -37,6 +37,7 @@ module "iam" {
   kms_arn     = module.kms.kms_key_arn
 
   users_map = {
+
     kungfu2 = "dev"
     milan = "admin"
     kc = "read_only"# This assigns kungfu to the 'admin' group

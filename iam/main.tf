@@ -4,7 +4,7 @@ locals {
 
 # IAM Groups
 resource "aws_iam_group" "groups" {
-  for_each = toset(["dev", "read_only", "admin"])
+  for_each = toset(var.group_names)
   name     = "tf-${each.value}-group"
 }
 
@@ -31,11 +31,7 @@ resource "aws_iam_user_group_membership" "group_membership" {
 # Group to Policy Mapping
 
 resource "aws_iam_policy_attachment" "group_policies" {
-  for_each = {
-    admin      = "arn:aws:iam::aws:policy/AdministratorAccess"
-    dev        = "arn:aws:iam::aws:policy/PowerUserAccess"
-    read_only  = "arn:aws:iam::aws:policy/ReadOnlyAccess"
-  }
+  for_each = var.group_policy_arns
 
   name       = "${each.key}-policy-attachment"
   policy_arn = each.value
