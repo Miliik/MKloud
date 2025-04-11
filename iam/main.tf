@@ -1,64 +1,66 @@
-resource "aws_iam_user" "kungfu_user" {
-  name          = "tf-${var.username}-user"
+locals {
+  groups = distinct(values(var.users_map))
+}
+
+# IAM Groups
+resource "aws_iam_group" "groups" {
+  for_each = toset(["dev", "read_only", "admin"])
+  name     = "tf-${each.value}-group"
+}
+
+# IAM Users
+resource "aws_iam_user" "users" {
+  for_each      = var.users_map
+  name          = "tf-${each.key}-user"
   force_destroy = true
 }
 
-resource "aws_iam_access_key" "kungfu_access_key" {
-  user = aws_iam_user.kungfu_user.name
+# IAM Access Keys
+resource "aws_iam_access_key" "access_keys" {
+  for_each = var.users_map
+  user     = aws_iam_user.users[each.key].name
 }
 
-data "aws_iam_policy" "full_read_only_policy" {
-  name = "ReadOnlyAccess"
+# IAM Group Membership
+resource "aws_iam_user_group_membership" "group_membership" {
+  for_each = var.users_map
+  user     = aws_iam_user.users[each.key].name
+  groups   = [aws_iam_group.groups[each.value].name]
 }
 
-resource "aws_iam_policy_attachment" "attach_full_read_only" {
-  name       = "tf-attach-readonly"
-  users      = [aws_iam_user.kungfu_user.name]
-  policy_arn = data.aws_iam_policy.full_read_only_policy.arn
+# Group to Policy Mapping
+
+resource "aws_iam_policy_attachment" "group_policies" {
+  for_each = {
+    admin      = "arn:aws:iam::aws:policy/AdministratorAccess"
+    dev        = "arn:aws:iam::aws:policy/PowerUserAccess"
+    read_only  = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+  }
+
+  name       = "${each.key}-policy-attachment"
+  policy_arn = each.value
+  groups     = [aws_iam_group.groups[each.key].name]
 }
 
-resource "aws_iam_user_policy" "kungfu_policy" {
-  name = "tf-${var.policy_name}-policy"
-  user = aws_iam_user.kungfu_user.name
-
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "iam:AttachUserPolicy",
-          "iam:CreateUser"
-        ],
-        "Resource" : [
-          "arn:aws:iam::421751520950:user/fake-admin*",
-          "arn:aws:iam::421751520950:policy/tf-fake-admin-policy"
-        ]
-      }
-    ]
-  })
-}
-
+# Custom Fake Admin Policy (example dev policy)
 resource "aws_iam_policy" "fake_admin_policy" {
   name = "tf-fake-admin-policy"
 
   policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
+    Version = "2012-10-17"
+    Statement = [
       {
-        "Effect" : "Allow",
-        "Action" : [
-          "ec2:DescribeInstances" # TODO : A CHANGER
-        ],
-        "Resource" : "*"
+        Effect   = "Allow"
+        Action   = ["ec2:DescribeInstances"]
+        Resource = "*"
       }
     ]
   })
 }
 
-# Create the IAM policy for the KMS key
+# KMS Policy for a specific user (can be enhanced with lookup logic if per-user needed)
 resource "aws_iam_policy" "kms_usage_policy" {
-  name        = "${var.username}_kms_usage_policy"
+  name        = "kms_usage_policy"
   description = "Policy to allow KMS encrypt and decrypt actions"
   policy      = jsonencode({
     Version = "2012-10-17"
@@ -78,8 +80,45 @@ resource "aws_iam_policy" "kms_usage_policy" {
   })
 }
 
-# Attach the KMS policy to the IAM user
-resource "aws_iam_user_policy_attachment" "attach_kms_policy" {
-  user       = aws_iam_user.kungfu_user.name
+resource "aws_iam_user_policy_attachment" "kms_user_policy" {
+  for_each   = var.users_map
+  user       = aws_iam_user.users[each.key].name
   policy_arn = aws_iam_policy.kms_usage_policy.arn
 }
+
+# Temp Admin Role
+resource "aws_iam_role" "temp_admin_role" {
+  name = "tf-temp-admin-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          AWS = [for u in aws_iam_user.users : u.arn]
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# Admin Privileges for Temp Role
+resource "aws_iam_policy" "temp_admin_policy" {
+  name = "tf-temp-admin-policy"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = "*",
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "temp_admin_policy_attach" {
+  role       = aws_iam_role.temp_admin_role.name
+  policy_arn = aws_iam_policy.temp_admin_policy.arn
+} 

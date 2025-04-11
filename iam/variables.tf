@@ -1,10 +1,9 @@
-variable "username" {
-  type = string
+variable "users_map" {
+  description = "Map of usernames to groups (e.g. { alice = \"read_only\", bob = \"dev\" })"
+  type        = map(string)
 }
-variable "policy_name" {
-  type = string
-}
+
 variable "kms_arn" {
-  description = "ARN of the KMS key"
+  description = "KMS Key ARN for encryption permissions"
   type        = string
 }

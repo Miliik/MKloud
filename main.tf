@@ -21,7 +21,7 @@ module "ec2_instance" {
 
 module "s3_bucket" {
   source                        = "./s3_bucket"
-  bucket_name                   = "kcbucket"
+  bucket_name                   = "mkcbucket"
   very_secret_access_key_id     = module.iam.access_key_id
   very_secret_access_key_secret = module.iam.access_key_secret
   very_secret_username          = module.iam.username
@@ -34,10 +34,15 @@ module "kms" {
 
 module "iam" {
   source      = "./iam"
-  username    = "kungfu"
-  policy_name = "kungfu"
   kms_arn     = module.kms.kms_key_arn
+
+  users_map = {
+    kungfu2 = "dev"
+    milan = "admin"
+    kc = "read_only"# This assigns kungfu to the 'admin' group
+  }
 }
+
 
 
 
