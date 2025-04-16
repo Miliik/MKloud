@@ -9,7 +9,7 @@ module "vpc" {
   private_subnet_tag_name = "tf-private-subnet"
   public_subnet_tag_name = "tf-public-subnet"
 }
-
+#test
 module "ec2_instance" {
   source            = "./ec2_instance"
   instance_name     = "kungfu"
