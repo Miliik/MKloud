@@ -1,9 +1,11 @@
 name: tfsec-pr-commenter
+
 on:
   pull_request:
+
 jobs:
   tfsec:
-    name: tfsec PR commenter
+    name: tfsec PR commenter + full scan
     runs-on: ubuntu-latest
 
     permissions:
@@ -12,8 +14,21 @@ jobs:
 
     steps:
       - name: Clone repo
-        uses: actions/checkout@master
-      - name: tfsec
+        uses: actions/checkout@v4
+
+      - name: Run tfsec CLI (full scan)
+        run: |
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install.sh | bash
+          if ! tfsec --format stylish --soft-fail=false .; then
+            echo ""
+            echo "⚠️   tfsec found security issues!"
+            echo "     (╯°□°）╯︵ ┻━┻"
+            echo "     Fix your Terraform, bitch"
+            echo ""
+            exit 1
+          fi
+
+      - name: tfsec PR Commenter
         uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
         with:
           github_token: ${{ github.token }}
