@@ -1,7 +1,7 @@
 locals {
   groups = distinct(values(var.users_map))
 }
-
+#test
 # IAM Groups
 resource "aws_iam_group" "groups" {
   for_each = toset(var.group_names)
