@@ -44,6 +44,11 @@ module "iam" {
   }
 }
 
+module "logging"{
+  source = "./logging"
+  s3_bucket_arn = module.s3_bucket.aws_s3_arn
+  s3_bucket_id = module.s3_bucket.aws_s3_id
+}
 
 
 
