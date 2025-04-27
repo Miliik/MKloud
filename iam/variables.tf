@@ -12,9 +12,9 @@ variable "group_policy_arns" {
   description = "Map of group names to their respective policy ARNs"
   type        = map(string)
   default = {
-    admin      = "arn:aws:iam::aws:policy/AdministratorAccess"
-    dev        = "arn:aws:iam::aws:policy/PowerUserAccess"
-    read_only  = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+    admin     = "arn:aws:iam::aws:policy/AdministratorAccess"
+    dev       = "arn:aws:iam::aws:policy/PowerUserAccess"
+    read_only = "arn:aws:iam::aws:policy/ReadOnlyAccess"
   }
 }
 

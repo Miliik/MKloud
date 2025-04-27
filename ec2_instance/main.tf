@@ -24,8 +24,8 @@ resource "aws_iam_instance_profile" "kungfu_profile" {
 
 resource "aws_instance" "kungfu_ec2" {
   ami                  = data.aws_ami.debian_11.id
-  instance_type        = "${var.instance_type}"
-  subnet_id            = "${var.public_subnet_id}"
+  instance_type        = var.instance_type
+  subnet_id            = var.public_subnet_id
   security_groups      = [var.security_group_id]
   key_name             = aws_key_pair.kungfu_key.id
   iam_instance_profile = aws_iam_instance_profile.kungfu_profile.name
@@ -34,7 +34,7 @@ resource "aws_instance" "kungfu_ec2" {
     delete_on_termination = true
   }
   metadata_options {
-    http_tokens = "required"
+    http_tokens   = "required"
     http_endpoint = "enabled"
   }
   tags = {

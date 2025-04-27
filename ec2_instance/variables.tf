@@ -15,5 +15,5 @@ variable "security_group_id" {
 }
 
 variable "instance_type" {
-    type = string
+  type = string
 }

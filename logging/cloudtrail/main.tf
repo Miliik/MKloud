@@ -1,9 +1,9 @@
 resource "aws_cloudtrail" "main" {
   name                          = "kungfu-cloudtrail"
-  s3_bucket_name               = var.s3_bucket_id
+  s3_bucket_name                = var.s3_bucket_id
   include_global_service_events = true
-  is_multi_region_trail        = true
-  enable_logging               = true
+  is_multi_region_trail         = true
+  enable_logging                = true
 
   depends_on = [aws_s3_bucket_policy.cloudtrail]
 }

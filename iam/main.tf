@@ -58,12 +58,12 @@ resource "aws_iam_policy" "fake_admin_policy" {
 resource "aws_iam_policy" "kms_usage_policy" {
   name        = "kms_usage_policy"
   description = "Policy to allow KMS encrypt and decrypt actions"
-  policy      = jsonencode({
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "kms:Encrypt",
           "kms:Decrypt",
           "kms:ReEncrypt*",
@@ -117,4 +117,4 @@ resource "aws_iam_policy" "temp_admin_policy" {
 resource "aws_iam_role_policy_attachment" "temp_admin_policy_attach" {
   role       = aws_iam_role.temp_admin_role.name
   policy_arn = aws_iam_policy.temp_admin_policy.arn
-} 
+}
