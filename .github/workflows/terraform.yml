@@ -22,7 +22,8 @@ jobs:
 
     - name: Terraform Format Check
       id: fmt
-      run: terraform fmt -check -recursive
+      run: |
+        terraform fmt -check -recursive || echo "fmt_failed=true" >> $GITHUB_ENV
 
     - name: Terraform Init
       run: terraform init
@@ -31,14 +32,14 @@ jobs:
       run: terraform validate
 
     - name: Comment on PR if Format Check Fails
-      if: failure() && github.event_name == 'pull_request'
+      if: env.fmt_failed == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           github.rest.issues.createComment({
             issue_number: context.issue.number,
-            body: "🚨 **Terraform format check failed.**\n\nPlease run `terraform fmt` locally and commit the changes."
+            body: "🚨 **Terraform format check failed!**\n\nPlease run `terraform fmt` locally and commit the changes."
           })
 
   terraform-security-check:
@@ -55,15 +56,16 @@ jobs:
 
     - name: Run tfsec Scan
       id: tfsec
-      run: tfsec .
+      run: |
+        tfsec . || echo "tfsec_failed=true" >> $GITHUB_ENV
 
     - name: Comment on PR if TFSec Fails
-      if: failure() && github.event_name == 'pull_request'
+      if: env.tfsec_failed == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           github.rest.issues.createComment({
             issue_number: context.issue.number,
-            body: "⚠️ **TFSec scan found security issues.**\n\nPlease review the security warnings and fix them."
+            body: "⚠️ **TFSec security scan found issues!**\n\nPlease review the findings and fix security problems."
           })
