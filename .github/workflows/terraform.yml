@@ -62,8 +62,9 @@ jobs:
 
     - name: Run tfsec Scan
       id: tfsec
-      run: |
-        tfsec . || echo "tfsec_failed=true" >> $GITHUB_ENV
+      run:  |
+        tfsec --soft-fail=false . || echo "tfsec_failed=true" >> $GITHUB_ENV
+
 
     - name: Comment on PR if TFSec Fails
       if: env.tfsec_failed == 'true' && github.event_name == 'pull_request'
