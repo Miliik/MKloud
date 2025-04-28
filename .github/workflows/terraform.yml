@@ -69,7 +69,7 @@ jobs:
           fi
 
   comment-and-fail:
-    name: 'Display error and fail if needed'
+    name: 'Display error (with ASCII) and fail if needed'
     runs-on: ubuntu-latest
     needs:
       - terraform-checks
@@ -77,11 +77,27 @@ jobs:
     steps:
       - name: Display if fmt failed
         if: needs.terraform-checks.outputs.fmt_failed == 'true'
-        run: echo "🚨 Terraform format check failed! Please run 'terraform fmt -recursive' and fix formatting."
+        run: |
+          echo "🚨 Terraform format check failed!"
+          echo "
+           ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+          █░░░░░░░░░░░░░░░░░█
+          █░░ FORMAT ISSUE  ░█
+          █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
+          "
+          echo "Please run 'terraform fmt -recursive' locally and commit the changes."
 
       - name: Display if tfsec failed
         if: needs.tfsec-scan.outputs.tfsec_failed == 'true'
-        run: echo "⚠️ tfsec security scan failed! Please run 'tfsec .' and fix the issues."
+        run: |
+          echo "⚠️ tfsec security scan failed!"
+          echo "
+           ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+          █░░░░░░░░░░░░░░░░░█
+          █░░ SECURITY FAIL ░█
+          █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
+          "
+          echo "Please run 'tfsec .' locally and fix the reported issues."
 
       - name: Fail the workflow if something failed
         if: needs.terraform-checks.outputs.fmt_failed == 'true' || needs.tfsec-scan.outputs.tfsec_failed == 'true'
