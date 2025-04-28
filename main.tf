@@ -27,7 +27,7 @@ module "s3_bucket" {
   very_secret_username          = module.iam.username
 }
 
-module "kms" {
+module "kms"          {
   source = "./kms"
   kmsname = "kcms_key"
 }
