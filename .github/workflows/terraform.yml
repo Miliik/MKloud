@@ -22,41 +22,41 @@ jobs:
 
       - name: Terraform Format Check
         id: fmt
-        run: |
-          terraform fmt -check -recursive
+        run: terraform fmt -check -recursive
+        continue-on-error: true  # <- don't stop workflow immediately
+
       - name: Terraform Init
         run: terraform init
+
       - name: Terraform Validate
         run: terraform validate
+
       - name: Comment success if Format passes
-        if: success() && github.event_name == 'pull_request'
+        if: steps.fmt.outcome == 'success' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
-              body: "✅ Terraform format check passed!
-              formatte ton code de con la"
-            '  ⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
-            ⠸⡇⠀⠿⡀⠀⠀⠀⣀⡴⢿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠑⢄⣠⠾⠁⣀⣄⡈⠙⣿⣿⣿⣿⣿⣿⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⢀⡀⠁⠀⠀⠈⠙⠛⠂⠈⣿⣿⣿⣿⣿⠿⡿⢿⣆⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⢀⡾⣁⣀⠀⠴⠂⠙⣗⡀⠀⢻⣿⣿⠭⢤⣴⣦⣤⣹⠀⠀⠀⢀⢴⣶⣆ 
-            ⠀⠀⢀⣾⣿⣿⣿⣷⣮⣽⣾⣿⣥⣴⣿⣿⡿⢂⠔⢚⡿⢿⣿⣦⣴⣾⠁⠸⣼⡿ 
-            ⠀⢀⡞⠁⠙⠻⠿⠟⠉⠀⠛⢹⣿⣿⣿⣿⣿⣌⢤⣼⣿⣾⣿⡟⠉⠀⠀⠀⠀⠀ 
-            ⠀⣾⣷⣶⠇⠀⠀⣤⣄⣀⡀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀ 
-            ⠀⠉⠈⠉⠀⠀⢦⡈⢻⣿⣿⣿⣶⣶⣶⣶⣤⣽⡹⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠀⠀⠀⠉⠲⣽⡻⢿⣿⣿⣿⣿⣿⣿⣷⣜⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣶⣮⣭⣽⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠀⠀⣀⣀⣈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠀⠀⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀ 
-            ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠻⠿⠿⠿⠿⠛⠉
-              '
-      
+              body: "✅ Terraform format check passed! 🎉"
+            })
 
-  
+      - name: Comment failure if Format fails
+        if: steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              body: "🚨 **Terraform format check failed!**\n\nPlease run `terraform fmt -recursive` locally and commit the changes."
+            })
+
+      - name: Fail workflow if Format fails
+        if: steps.fmt.outcome == 'failure'
+        run: exit 1
+
   terraform-security-check:
     name: 'Terraform Security Scan'
     runs-on: ubuntu-latest
@@ -71,16 +71,20 @@ jobs:
 
       - name: Run tfsec Scan
         id: tfsec
-        run: |
-          tfsec .
+        run: tfsec .
+        continue-on-error: true  # <- don't stop workflow immediately
 
-      - name: Comment if TFSec fails
-        if: failure() && github.event_name == 'pull_request'
+      - name: Comment failure if TFSec fails
+        if: steps.tfsec.outcome == 'failure' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
-              body: "⚠️ **TFSec scan failed!** Please fix the security issues reported."
+              body: "⚠️ **TFSec security scan failed!**\n\nPlease run `tfsec .` locally and fix the issues reported."
             })
+
+      - name: Fail workflow if TFSec fails
+        if: steps.tfsec.outcome == 'failure'
+        run: exit 1
