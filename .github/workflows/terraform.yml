@@ -1,4 +1,3 @@
-
 name: Terraform CI/CD
 
 on:
@@ -10,10 +9,11 @@ on:
       - main
 
 jobs:
-  terraform-code-check:
+  terraform-checks:
     name: 'Terraform Format & Validate'
     runs-on: ubuntu-latest
-
+    outputs:
+      fmt_failed: ${{ steps.setfmt.outputs.failed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,8 +23,17 @@ jobs:
 
       - name: Terraform Format Check
         id: fmt
-        run: terraform fmt -check -recursive
-        continue-on-error: true  # <- don't stop workflow immediately
+        run: |
+          terraform fmt -check -recursive || echo "FMT_FAILED=true" >> $GITHUB_ENV
+
+      - name: Set fmt output
+        id: setfmt
+        run: |
+          if [ "${FMT_FAILED}" = "true" ]; then
+            echo "failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "failed=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Terraform Init
         run: terraform init
@@ -32,36 +41,11 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Comment success if Format passes
-        if: steps.fmt.outcome == 'success' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              body: "✅ Terraform format check passed! 🎉"
-            })
-
-      - name: Comment failure if Format fails
-        if: steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              body: "🚨 **Terraform format check failed!**\n\nPlease run `terraform fmt -recursive` locally and commit the changes."
-            })
-
-      - name: Fail workflow if Format fails
-        if: steps.fmt.outcome == 'failure'
-        run: exit 1
-
-  terraform-security-check:
+  tfsec-scan:
     name: 'Terraform Security Scan'
     runs-on: ubuntu-latest
-
+    outputs:
+      tfsec_failed: ${{ steps.settfsec.outputs.failed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -70,22 +54,35 @@ jobs:
         run: |
           curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
 
-      - name: Run tfsec Scan
+      - name: Run tfsec
         id: tfsec
-        run: tfsec .
-        continue-on-error: true  # <- don't stop workflow immediately
+        run: |
+          tfsec . || echo "TFSEC_FAILED=true" >> $GITHUB_ENV
 
-      - name: Comment failure if TFSec fails
-        if: steps.tfsec.outcome == 'failure' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              body: "⚠️ **TFSec security scan failed!**\n\nPlease run `tfsec .` locally and fix the issues reported."
-            })
+      - name: Set tfsec output
+        id: settfsec
+        run: |
+          if [ "${TFSEC_FAILED}" = "true" ]; then
+            echo "failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "failed=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Fail workflow if TFSec fails
-        if: steps.tfsec.outcome == 'failure'
+  comment-and-fail:
+    name: 'Display error and fail if needed'
+    runs-on: ubuntu-latest
+    needs:
+      - terraform-checks
+      - tfsec-scan
+    steps:
+      - name: Display if fmt failed
+        if: needs.terraform-checks.outputs.fmt_failed == 'true'
+        run: echo "🚨 Terraform format check failed! Please run 'terraform fmt -recursive' and fix formatting."
+
+      - name: Display if tfsec failed
+        if: needs.tfsec-scan.outputs.tfsec_failed == 'true'
+        run: echo "⚠️ tfsec security scan failed! Please run 'tfsec .' and fix the issues."
+
+      - name: Fail the workflow if something failed
+        if: needs.terraform-checks.outputs.fmt_failed == 'true' || needs.tfsec-scan.outputs.tfsec_failed == 'true'
         run: exit 1
