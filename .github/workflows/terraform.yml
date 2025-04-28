@@ -76,7 +76,7 @@ jobs:
     - name: Run tfsec Scan
       id: tfsec
       run:  |
-        tfsec --soft-fail=false --exit-code=1 . || echo "tfsec_failed=true" >> $GITHUB_ENV
+        tfsec . || echo "tfsec_failed=true" >> $GITHUB_ENV
 
 
     - name: Comment on PR if TFSec Fails
