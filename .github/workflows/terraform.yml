@@ -9,10 +9,11 @@ on:
       - main
 
 jobs:
-  terraform-code-check:
+  terraform-checks:
     name: 'Terraform Format & Validate'
     runs-on: ubuntu-latest
-
+    outputs:
+      fmt_failed: ${{ steps.setfmt.outputs.failed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +24,11 @@ jobs:
       - name: Terraform Format Check
         id: fmt
         run: terraform fmt -check -recursive
-        continue-on-error: true  # <- don't stop workflow immediately
+        continue-on-error: true
+
+      - name: Set fmt output
+        id: setfmt
+        run: echo "failed=${{ steps.fmt.outcome == 'failure' }}" >> $GITHUB_OUTPUT
 
       - name: Terraform Init
         run: terraform init
@@ -31,19 +36,38 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Comment success if Format passes
-        if: steps.fmt.outcome == 'success' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              body: "✅ Terraform format check passed! 🎉"
-            })
+  tfsec-scan:
+    name: 'Terraform Security Scan'
+    runs-on: ubuntu-latest
+    outputs:
+      tfsec_failed: ${{ steps.settfsec.outputs.failed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Comment failure if Format fails
-        if: steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
+      - name: Install tfsec
+        run: |
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+
+      - name: Run tfsec
+        id: tfsec
+        run: tfsec .
+        continue-on-error: true
+
+      - name: Set tfsec output
+        id: settfsec
+        run: echo "failed=${{ steps.tfsec.outcome == 'failure' }}" >> $GITHUB_OUTPUT
+
+  comment-and-fail:
+    name: 'Comment and Fail if Needed'
+    runs-on: ubuntu-latest
+    needs:
+      - terraform-checks
+      - tfsec-scan
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Comment if Terraform fmt failed
+        if: needs.terraform-checks.outputs.fmt_failed == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,38 +77,17 @@ jobs:
               body: "🚨 **Terraform format check failed!**\n\nPlease run `terraform fmt -recursive` locally and commit the changes."
             })
 
-      - name: Fail workflow if Format fails
-        if: steps.fmt.outcome == 'failure'
-        run: exit 1
-
-  terraform-security-check:
-    name: 'Terraform Security Scan'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install tfsec
-        run: |
-          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-
-      - name: Run tfsec Scan
-        id: tfsec
-        run: tfsec .
-        continue-on-error: true  # <- don't stop workflow immediately
-
-      - name: Comment failure if TFSec fails
-        if: steps.tfsec.outcome == 'failure' && github.event_name == 'pull_request'
+      - name: Comment if tfsec failed
+        if: needs.tfsec-scan.outputs.tfsec_failed == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
-              body: "⚠️ **TFSec security scan failed!**\n\nPlease run `tfsec .` locally and fix the issues reported."
+              body: "⚠️ **TFSec security scan failed!**\n\nPlease run `tfsec .` locally and fix the issues."
             })
 
-      - name: Fail workflow if TFSec fails
-        if: steps.tfsec.outcome == 'failure'
+      - name: Fail the workflow if something failed
+        if: needs.terraform-checks.outputs.fmt_failed == 'true' || needs.tfsec-scan.outputs.tfsec_failed == 'true'
         run: exit 1
